@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'Cart.apps.CartConfig',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [
