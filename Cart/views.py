@@ -1,27 +1,24 @@
 from django.contrib.auth.models import User
-from pytz import unicode
 
-from .models import Product, Address, Cart, Order
+from .models import Product, Cart, Order
 from rest_framework.decorators import action, api_view, authentication_classes, permission_classes
-from rest_framework import viewsets, generics
+from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
+from rest_framework.reverse import reverse
 
-# token = Token.objects.create(user=...)
-# print(token.key)
 
-from .Serializers import ProductSerializer, AccountSerializer, AddressSerializer, CartSerializer, OrderSerializer,\
-    AuditSerializer, UserSerializer
+from .Serializers import ProductSerializer, AccountSerializer, CartSerializer, OrderSerializer, UserSerializer
 
 
 class AccountViewSet(viewsets.ModelViewSet):
     model = User
     serializer_class = AccountSerializer
-    permission_classes = ()
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def post_save(self, obj, created=False):
         if created:
@@ -33,22 +30,15 @@ class AccountViewSet(viewsets.ModelViewSet):
         return User.objects.filter(username=user.username)
 
 
-class AddressViewSet(viewsets.ModelViewSet):
-    model = Address
-    serializer_class = AddressSerializer
-
-    def get_queryset(self,):
-        user = self.request.user
-        return Address.objects.filter(user=user)
-
-    def pre_save(self, obj):
-        obj.user = self.request.user
-
-
 class CartViewSet(viewsets.ModelViewSet):
-    # model = Cart
+    model = Cart
     serializer_class = CartSerializer
     queryset = Cart.objects.all()
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
     #
     # def get_queryset(self,):
     #     return Cart.objects.filter(user=self.request.user)
@@ -73,6 +63,11 @@ class OrderViewSet(viewsets.ModelViewSet):
     model = Order
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
     # permission_classes = [IsAuthenticatedOrReadOnly]
 
     # def get_queryset(self,):
@@ -83,12 +78,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     #
     # def perform_create(self, serializer):
     #     serializer.save(owner=self.request.user)
-
-
-class DetailedAccountViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = AuditSerializer
-    permission_classes = (IsAdminUser,)
 
 
 class UserList(generics.ListAPIView):
@@ -106,13 +95,15 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
 
-@api_view(['GET'])
-@authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def example_view(request, format=None):
-    content = {
-        'user': unicode(request.user),  # `django.contrib.auth.User` instance.
-        'auth': unicode(request.auth),  # None
-    }
-    return Response(content)
-
+@api_view(['POST'])
+def create_auth(request):
+    serialized = UserSerializer(data=request.data)
+    if serialized.is_valid():
+        User.objects.create_user(
+            serialized['username'],
+            serialized['email'],
+            serialized['password']
+        )
+        return Response(serialized.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serialized._errors, status=status.HTTP_400_BAD_REQUEST)

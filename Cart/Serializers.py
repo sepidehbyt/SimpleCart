@@ -1,23 +1,22 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Product, Address, Cart, Order
+from .models import Product, Cart, Order
 
 
 class UserSerializer(serializers.ModelSerializer):
     # carts = serializers.PrimaryKeyRelatedField(many=True, queryset=Cart.objects.all())
-    # addresses = serializers.PrimaryKeyRelatedField(many=True, queryset=Address.objects.all())
-    orders = serializers.PrimaryKeyRelatedField(many=True, queryset=Order.objects.all())
+    # orders = serializers.PrimaryKeyRelatedField(many=True, queryset=Order.objects.all())
 
     class Meta:
         model = User
-        # fields = ['id', 'username', 'carts', 'addresses', 'orders']
-        fields = ['id', 'username', 'orders']
+        # fields = ['id', 'username', 'password', 'email', 'carts', 'orders']
+        fields = ['id', 'username', 'password', 'email']
 
 
 class AccountSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = User
-        fields = ('url', 'username', 'email', 'password', 'addresses', 'carts')
+        fields = ('url', 'username', 'email', 'password')
         write_only_fields = 'password'
 
     def restore_object(self, attrs, instance=None):
@@ -26,16 +25,11 @@ class AccountSerializer(serializers.HyperlinkedModelSerializer):
         return user
 
 
-class AddressSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = Address
-        fields = ('url', 'first_name', 'last_name', 'street_address', 'city', 'mobile')
-
-
 class CartSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Cart
-        fields = ('url', 'items')
+        owner = serializers.ReadOnlyField(source='owner.username')
+        fields = ('url', 'owner')
 
 
 class ProductSerializer(serializers.HyperlinkedModelSerializer):
@@ -47,14 +41,5 @@ class ProductSerializer(serializers.HyperlinkedModelSerializer):
 class OrderSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Order
-        # owner = serializers.ReadOnlyField(source='owner.username')
-        # fields = ('url', 'items', 'cart', 'owner')
-        fields = ('url', 'items', 'cart',)
-
-
-class AuditSerializer(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model = User
-        fields = ('url', 'username', 'email', 'password', 'addresses', 'carts')
-        write_only_fields = 'password'
-    depth = 3
+        owner = serializers.ReadOnlyField(source='owner.username')
+        fields = ('url', 'owner', 'cart', 'totalPrice')
